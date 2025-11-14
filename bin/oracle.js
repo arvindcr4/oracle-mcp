@@ -10,13 +10,14 @@ import { ensureSessionStorage, initializeSession, updateSessionMetadata, readSes
 import { runOracle, MODEL_CONFIGS, parseIntOption, renderPromptMarkdown } from '../src/oracle.js';
 
 const SCRIPT_PATH = fileURLToPath(import.meta.url);
+const VERSION = '1.0.0';
 
 
 const program = new Command();
 program
   .name('oracle')
   .description('One-shot GPT-5 Pro / GPT-5.1 tool for hard questions that benefit from large file context and server-side search.')
-  .version('1.0.0')
+  .version(VERSION)
   .option('-p, --prompt <text>', 'User prompt to send to the model.')
   .option('-f, --file <paths...>', 'Paths to files or directories to append to the prompt; repeat or supply a space-separated list.', collectPaths, [])
   .option('-m, --model <model>', 'Model to target (gpt-5-pro | gpt-5.1).', validateModel, 'gpt-5-pro')
@@ -55,7 +56,7 @@ const isTty = process.stdout.isTTY;
 const bold = (text) => (isTty ? kleur.bold(text) : text);
 const dim = (text) => (isTty ? kleur.dim(text) : text);
 
-program.addHelpText('beforeAll', () => `${bold('Oracle CLI')} — GPT-5 Pro/GPT-5.1 for tough questions with code/file context.\n`);
+program.addHelpText('beforeAll', () => `${bold(`Oracle CLI v${VERSION}`)} — GPT-5 Pro/GPT-5.1 for tough questions with code/file context.\n`);
 program.addHelpText(
   'after',
   () => `
