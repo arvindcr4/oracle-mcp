@@ -48,8 +48,6 @@ Use `bun run start` if you prefer invoking the script through the package.json s
 | `--preview` | Print the token budget summary and exit before hitting the API. |
 | `--preview-json` | When combined with `--preview`, also dump the full JSON payload (otherwise only the summary/tokens print). |
 | `--render-markdown` | Emit the assembled markdown for system prompt, user prompt, and attached files (no API call). |
-| `--session <id>` | Attach to a stored session, replay the transcript, and follow the live stream if it is still running. |
-| `--status` | List recent sessions (last 24 hours). Combine with `--status-hours <n>`, `--status-all`, and `--status-limit <n>` to tweak the listing. |
 | `--silent` | Skip printing the model answer in foreground runs; still prints stats/tokens/costs. |
 
 Every run ends with a stats block showing elapsed time, actual/estimated tokens, reasoning tokens, and dollar cost (computed from the official per-token rates for each model).
@@ -75,11 +73,16 @@ Every run ends with a stats block showing elapsed time, actual/estimated tokens,
 
 Oracle writes every non-preview run to `~/.oracle/sessions/<timestamp>-<slug>` and spawns a detached Bun process so the request keeps streaming even if the originating shell exits.
 
+Commands:
+
+- `oracle session <sessionId>` – attach to a running/completed session, replay the log, and follow new output if the request is still alive.
+- `oracle status [--hours <n>] [--limit <n>] [--all]` – list recent sessions (default 24 hours, capped at 1,000 entries). Increase the window or limit as needed.
+
 Typical workflow:
 
 1. Kick off a run: `bun run start -- -m gpt-5.1 -p "Fix the bug" --file src/app.ts`. The CLI immediately returns with the Session ID and the background worker carries on.
-2. Tail it later: `oracle --session <sessionId>` replays the transcript from disk and follows new output until the run finishes.
-3. Check recent work: `oracle --status` lists the last 24 hours of sessions (cap 1,000 entries). Use `--status-hours <n>`, `--status-all`, or `--status-limit <n>` to adjust the window. If you accumulate more than 1,000, delete old folders inside `~/.oracle/sessions`.
+2. Tail it later: `oracle session <sessionId>` replays the transcript from disk and follows new output until the run finishes.
+3. Check recent work: `oracle status --hours 72 --limit 50` lists the last 72 hours of sessions (cap 50 entries). Add `--all` to include every stored session. If you accumulate more than 1,000, delete old folders inside `~/.oracle/sessions`.
 4. Need a different storage path? Set `ORACLE_HOME_DIR=/custom/cache` before running the CLI.
 
 ## Testing

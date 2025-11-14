@@ -27,13 +27,25 @@ program
   .option('--preview-json', 'When using --preview, also dump the full JSON payload.', false)
   .option('--silent', 'Hide the model answer and only print stats.', false)
   .option('--exec-session <id>', 'Internal flag used for detached session execution.')
-  .option('--session <id>', 'Attach to a running or completed session and stream its output.')
-  .option('--status', 'List recent sessions (last 24h by default).', false)
-  .option('--status-hours <hours>', 'Look back this many hours for --status (default 24).', parseFloatOption, 24)
-  .option('--status-all', 'Show all stored sessions regardless of age.', false)
-  .option('--status-limit <count>', 'Maximum sessions to show (max 1000).', parseIntOption, 100)
   .option('--render-markdown', 'Emit the assembled markdown bundle for prompt + files and exit.', false)
   .showHelpAfterError('(use --help for usage)');
+
+program
+  .command('session <id>')
+  .description('Attach to a stored session, replay its transcript, and follow live output if still running.')
+  .action(async (sessionId) => {
+    await attachSession(sessionId);
+  });
+
+program
+  .command('status')
+  .description('List recent sessions (24h window by default).')
+  .option('--hours <hours>', 'Look back this many hours (default 24).', parseFloatOption, 24)
+  .option('--limit <count>', 'Maximum sessions to show (max 1000).', parseIntOption, 100)
+  .option('--all', 'Include all stored sessions regardless of age.', false)
+  .action(async (cmd) => {
+    await showStatus({ hours: cmd.all ? Infinity : cmd.hours, includeAll: cmd.all, limit: cmd.limit });
+  });
 
 const isTty = process.stdout.isTTY;
 const bold = (text) => (isTty ? kleur.bold(text) : text);
@@ -55,10 +67,10 @@ ${dim('    Inspect tokens + files without calling the API.')}
 ${bold('  oracle')} --prompt "Explain bug" --file src/ --files-report
 ${dim('    Launch background session and note the printed Session ID.')}
 
-${bold('  oracle')} --status
-${dim('    Show sessions from the last 24h. Add --status-hours 72 or --status-all to expand.')}
+${bold('  oracle status')} --hours 72 --limit 50
+${dim('    Show sessions from the last 72h (capped at 50 entries).')}
 
-${bold('  oracle')} --session <sessionId>
+${bold('  oracle session')} <sessionId>
 ${dim('    Attach to a running/completed session, streaming the saved transcript.')}
 `,
 );
@@ -94,16 +106,6 @@ async function main() {
     return;
   }
 
-  if (options.session) {
-    await attachSession(options.session);
-    return;
-  }
-
-  if (options.status) {
-    await showStatus({ hours: options.statusHours, includeAll: options.statusAll, limit: options.statusLimit });
-    return;
-  }
-
   if (options.execSession) {
     await executeSession(options.execSession);
     return;
@@ -134,8 +136,8 @@ async function main() {
   const sessionMeta = await initializeSession(options, process.cwd());
   spawnDetachedSession(sessionMeta.id);
   console.log(chalk.bold(`Session ${sessionMeta.id} started`));
-  console.log(`Follow progress with: oracle --session ${sessionMeta.id}`);
-  console.log('Use --status to review recent sessions.');
+  console.log(`Follow progress with: oracle session ${sessionMeta.id}`);
+  console.log('Use `oracle status` to review recent sessions.');
 }
 
 function spawnDetachedSession(sessionId) {
