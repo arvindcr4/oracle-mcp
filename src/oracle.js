@@ -293,6 +293,9 @@ export async function runOracle(options, deps = {}) {
 
   if (!options.preview) {
     log(headerLine);
+    if (options.model === 'gpt-5-pro') {
+      log(chalk.dim('Pro is thinking, this can take up to 10 minutes...'));
+    }
     if (options.sessionId) {
       log(`Session ID: ${options.sessionId}`);
     }
