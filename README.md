@@ -59,7 +59,7 @@ Every non-preview run spawns a detached worker and logs to `~/.oracle/sessions/<
 
 - `oracle session <sessionId>` / `oracle status <sessionId>` – replay and follow a specific session.
 - `oracle session` / `oracle status` – list recent runs (24 h window by default; tweak with `--hours/--limit/--all`).
-- `oracle status clear --hours 168` – prune logs older than a week (or `--all` for a full reset).
+- `oracle status --clear --hours 168` – prune logs older than a week (or `--all` for a full reset).
 
 Set `ORACLE_HOME_DIR` if you want to store logs somewhere other than your home directory.
 

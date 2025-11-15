@@ -29,6 +29,6 @@ describe('showStatus cleanup tip', () => {
   test('prints cleanup tip when no sessions found', async () => {
     const { showStatus } = await import('../../src/cli/sessionDisplay.ts');
     await showStatus({ hours: 24, includeAll: false, limit: 10, showExamples: false });
-    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('oracle session clean'));
+    expect(consoleSpy).toHaveBeenCalledWith(expect.stringContaining('oracle session --clear'));
   });
 });

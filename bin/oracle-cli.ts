@@ -75,21 +75,6 @@ const VERSION = '1.0.0';
 const rawCliArgs = process.argv.slice(2);
 const isTty = process.stdout.isTTY;
 
-function resolveInheritedOption<T>(command: Command, option: string, fallback: T): T {
-  const localSource = command.getOptionValueSource?.(option);
-  if (localSource && localSource !== 'default') {
-    return command.getOptionValue(option) as T;
-  }
-  const parent = command.parent;
-  if (parent) {
-    const parentSource = parent.getOptionValueSource?.(option);
-    if (parentSource && parentSource !== 'default') {
-      return parent.getOptionValue(option) as T;
-    }
-  }
-  return fallback;
-}
-
 const program = new Command();
 applyHelpStyling(program, VERSION, isTty);
 program
@@ -154,21 +139,10 @@ const sessionCommand = program
   .option('--hours <hours>', 'Look back this many hours when listing sessions (default 24).', parseFloatOption, 24)
   .option('--limit <count>', 'Maximum sessions to show when listing (max 1000).', parseIntOption, 100)
   .option('--all', 'Include all stored sessions regardless of age.', false)
+  .option('--clear', 'Delete stored sessions older than the provided window (24h default).', false)
+  .addOption(new Option('--clean', 'Deprecated alias for --clear.').default(false).hideHelp())
   .action(async (sessionId, _options: StatusOptions, cmd: Command) => {
     await handleSessionCommand(sessionId, cmd);
-  });
-
-sessionCommand
-  .command('clean')
-  .description('Delete stored sessions older than the provided window (24h default).')
-  .option('--hours <hours>', 'Delete sessions older than this many hours (default 24).', parseFloatOption, 24)
-  .option('--all', 'Delete all stored sessions.', false)
-  .action(async (_options, command: Command) => {
-    const hours = resolveInheritedOption(command, 'hours', 24);
-    const includeAll = resolveInheritedOption(command, 'all', false);
-    const result = await deleteSessionsOlderThan({ hours, includeAll });
-    const scope = includeAll ? 'all stored sessions' : `sessions older than ${hours}h`;
-    console.log(`Deleted ${result.deleted} ${result.deleted === 1 ? 'session' : 'sessions'} (${scope}).`);
   });
 
 const statusCommand = program
@@ -177,12 +151,33 @@ const statusCommand = program
   .option('--hours <hours>', 'Look back this many hours (default 24).', parseFloatOption, 24)
   .option('--limit <count>', 'Maximum sessions to show (max 1000).', parseIntOption, 100)
   .option('--all', 'Include all stored sessions regardless of age.', false)
+  .option('--clear', 'Delete stored sessions older than the provided window (24h default).', false)
+  .addOption(new Option('--clean', 'Deprecated alias for --clear.').default(false).hideHelp())
   .action(async (sessionId: string | undefined, _options: StatusOptions, command: Command) => {
+    const statusOptions = command.opts<StatusOptions>();
+    const clearRequested = Boolean(statusOptions.clear || statusOptions.clean);
+    if (clearRequested) {
+      if (sessionId) {
+        console.error('Cannot combine a session ID with --clear. Remove the ID to delete cached sessions.');
+        process.exitCode = 1;
+        return;
+      }
+      const hours = statusOptions.hours;
+      const includeAll = statusOptions.all;
+      const result = await deleteSessionsOlderThan({ hours, includeAll });
+      const scope = includeAll ? 'all stored sessions' : `sessions older than ${hours}h`;
+      console.log(`Deleted ${result.deleted} ${result.deleted === 1 ? 'session' : 'sessions'} (${scope}).`);
+      return;
+    }
+    if (sessionId === 'clear' || sessionId === 'clean') {
+      console.error('Session cleanup now uses --clear. Run "oracle status --clear --hours <n>" instead.');
+      process.exitCode = 1;
+      return;
+    }
     if (sessionId) {
       await attachSession(sessionId);
       return;
     }
-    const statusOptions = command.opts<StatusOptions>();
     const showExamples = usesDefaultStatusFilters(command);
     await showStatus({
       hours: statusOptions.all ? Infinity : statusOptions.hours,
@@ -190,19 +185,6 @@ const statusCommand = program
       limit: statusOptions.limit,
       showExamples,
     });
-  });
-
-statusCommand
-  .command('clear')
-  .description('Delete stored sessions older than the provided window (24h default).')
-  .option('--hours <hours>', 'Delete sessions older than this many hours (default 24).', parseFloatOption, 24)
-  .option('--all', 'Delete all stored sessions.', false)
-  .action(async (_options, command: Command) => {
-    const hours = resolveInheritedOption(command, 'hours', 24);
-    const includeAll = resolveInheritedOption(command, 'all', false);
-    const result = await deleteSessionsOlderThan({ hours, includeAll });
-    const scope = includeAll ? 'all stored sessions' : `sessions older than ${hours}h`;
-    console.log(`Deleted ${result.deleted} ${result.deleted === 1 ? 'session' : 'sessions'} (${scope}).`);
   });
 
 function buildRunOptions(options: ResolvedCliOptions, overrides: Partial<RunOracleOptions> = {}): RunOracleOptions {

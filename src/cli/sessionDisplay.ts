@@ -22,7 +22,7 @@ export interface ShowStatusOptions {
 }
 
 const CLEANUP_TIP =
-  'Tip: Run "oracle session clean --hours 24" to prune cached runs (add --all to wipe everything).';
+  'Tip: Run "oracle session --clear --hours 24" to prune cached runs (add --all to wipe everything).';
 
 function printCleanupTip(): void {
   console.log(dim(CLEANUP_TIP));
@@ -49,7 +49,7 @@ export async function showStatus({ hours, includeAll, limit, showExamples = fals
   if (truncated) {
     console.log(
       chalk.yellow(
-        `Showing ${entries.length} of ${total} sessions from the requested range. Run "oracle session clean" or delete entries in ${SESSIONS_DIR} to free space, or rerun with --status-limit/--status-all.`,
+        `Showing ${entries.length} of ${total} sessions from the requested range. Run "oracle session --clear" or delete entries in ${SESSIONS_DIR} to free space, or rerun with --status-limit/--status-all.`,
       ),
     );
   }
@@ -214,7 +214,7 @@ function printStatusExamples(): void {
   console.log(chalk.bold('Usage Examples'));
   console.log(`${chalk.bold('  oracle status --hours 72 --limit 50')}`);
   console.log(dim('    Show 72h of history capped at 50 entries.'));
-  console.log(`${chalk.bold('  oracle status clear --hours 168')}`);
+  console.log(`${chalk.bold('  oracle status --clear --hours 168')}`);
   console.log(dim('    Delete sessions older than 7 days (use --all to wipe everything).'));
   console.log(`${chalk.bold('  oracle session <session-id>')}`);
   console.log(dim('    Attach to a specific running/completed session to stream its output.'));

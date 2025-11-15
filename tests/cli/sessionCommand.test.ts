@@ -1,4 +1,4 @@
-import { describe, expect, test, vi } from 'vitest';
+import { afterEach, describe, expect, test, vi } from 'vitest';
 import { Command } from 'commander';
 import { handleSessionCommand, type StatusOptions } from '../../src/cli/sessionCommand.ts';
 
@@ -7,10 +7,21 @@ function createCommandWithOptions(options: StatusOptions): Command {
   command.setOptionValueWithSource('hours', options.hours, 'cli');
   command.setOptionValueWithSource('limit', options.limit, 'cli');
   command.setOptionValueWithSource('all', options.all, 'cli');
+  if (options.clear !== undefined) {
+    command.setOptionValueWithSource('clear', options.clear, 'cli');
+  }
+  if (options.clean !== undefined) {
+    command.setOptionValueWithSource('clean', options.clean, 'cli');
+  }
   return command;
 }
 
 describe('handleSessionCommand', () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    process.exitCode = undefined;
+  });
+
   test('lists sessions when no id provided', async () => {
     const command = createCommandWithOptions({ hours: 12, limit: 5, all: false });
     const showStatus = vi.fn();
@@ -18,6 +29,7 @@ describe('handleSessionCommand', () => {
       showStatus,
       attachSession: vi.fn(),
       usesDefaultStatusFilters: vi.fn().mockReturnValue(true),
+      deleteSessionsOlderThan: vi.fn(),
     });
     expect(showStatus).toHaveBeenCalledWith({
       hours: 12,
@@ -34,6 +46,7 @@ describe('handleSessionCommand', () => {
       showStatus: vi.fn(),
       attachSession,
       usesDefaultStatusFilters: vi.fn(),
+      deleteSessionsOlderThan: vi.fn(),
     });
     expect(attachSession).toHaveBeenCalledWith('abc');
   });
@@ -45,6 +58,7 @@ describe('handleSessionCommand', () => {
       showStatus,
       attachSession: vi.fn(),
       usesDefaultStatusFilters: vi.fn().mockReturnValue(false),
+      deleteSessionsOlderThan: vi.fn(),
     });
     expect(showStatus).toHaveBeenCalledWith({
       hours: Infinity,
@@ -52,5 +66,34 @@ describe('handleSessionCommand', () => {
       limit: 25,
       showExamples: false,
     });
+  });
+
+  test('clears sessions when --clear is provided', async () => {
+    const command = createCommandWithOptions({ hours: 6, limit: 5, all: false, clear: true });
+    const deleteSessionsOlderThan = vi.fn().mockResolvedValue({ deleted: 3 });
+    const logSpy = vi.spyOn(console, 'log').mockImplementation(() => undefined);
+    await handleSessionCommand(undefined, command, {
+      showStatus: vi.fn(),
+      attachSession: vi.fn(),
+      usesDefaultStatusFilters: vi.fn(),
+      deleteSessionsOlderThan,
+    });
+    expect(deleteSessionsOlderThan).toHaveBeenCalledWith({ hours: 6, includeAll: false });
+    expect(logSpy).toHaveBeenCalledWith('Deleted 3 sessions (sessions older than 6h).');
+  });
+
+  test('rejects slug-style "clear" ids with guidance', async () => {
+    const command = createCommandWithOptions({ hours: 24, limit: 10, all: false });
+    const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    await handleSessionCommand('clear', command, {
+      showStatus: vi.fn(),
+      attachSession: vi.fn(),
+      usesDefaultStatusFilters: vi.fn(),
+      deleteSessionsOlderThan: vi.fn(),
+    });
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Session cleanup now uses --clear. Run "oracle session --clear --hours <n>" instead.',
+    );
+    expect(process.exitCode).toBe(1);
   });
 });
