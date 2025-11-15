@@ -377,6 +377,11 @@ function buildRunOptionsFromMetadata(metadata: SessionMetadata): RunOracleOption
 }
 
 async function runRootCommand(options: CliOptions): Promise<void> {
+  const helpRequested = rawCliArgs.some((arg: string) => arg === '--help' || arg === '-h');
+  if (helpRequested) {
+    program.help({ error: false });
+    return;
+  }
   const previewMode = resolvePreviewMode(options.preview);
 
   if (rawCliArgs.length === 0) {
