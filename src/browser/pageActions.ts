@@ -151,6 +151,7 @@ function buildModelSelectionExpression(targetModel: string): string {
       return { status: 'button-missing' };
     }
 
+    let lastPointerClick = 0;
     const pointerClick = () => {
       const down = new PointerEvent('pointerdown', { bubbles: true, pointerId: 1, pointerType: 'mouse' });
       const up = new PointerEvent('pointerup', { bubbles: true, pointerId: 1, pointerType: 'mouse' });
@@ -158,6 +159,7 @@ function buildModelSelectionExpression(targetModel: string): string {
       button.dispatchEvent(down);
       button.dispatchEvent(up);
       button.dispatchEvent(click);
+      lastPointerClick = performance.now();
     };
 
     const getOptionLabel = (node) => node?.textContent?.trim() ?? '';
@@ -226,6 +228,9 @@ function buildModelSelectionExpression(targetModel: string): string {
         if (performance.now() - start > MAX_WAIT_MS) {
           resolve({ status: 'option-not-found' });
           return;
+        }
+        if (performance.now() - lastPointerClick > 500) {
+          pointerClick();
         }
         setTimeout(attempt, CLICK_INTERVAL_MS);
       };
