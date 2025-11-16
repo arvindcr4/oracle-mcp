@@ -81,6 +81,29 @@ function buildModelSelectionExpression(targetModel: string): string {
       lastPointerClick = performance.now();
     };
 
+    const getButtonLabel = () => {
+      const labelNode =
+        button.querySelector('[data-testid*="model-switcher-"]') ||
+        button.querySelector('[data-testid*="model-label"]') ||
+        button;
+      return labelNode.textContent?.trim() ?? '';
+    };
+
+    const buttonTestId = (button.getAttribute('data-testid') ?? '').toLowerCase();
+    const buttonText = getButtonLabel();
+    const normalizedButtonText = normalizeText(buttonText);
+    const buttonMatchesTestId = buttonTestId && TEST_IDS.some((id) => buttonTestId.includes(id));
+    const buttonMatchesText = LABEL_TOKENS.some((token) => {
+      const normalizedToken = normalizeText(token);
+      if (!normalizedToken) {
+        return false;
+      }
+      return normalizedButtonText.includes(normalizedToken);
+    });
+    if (buttonMatchesTestId || buttonMatchesText) {
+      return { status: 'already-selected', label: buttonText };
+    }
+
     const getOptionLabel = (node) => node?.textContent?.trim() ?? '';
     const optionIsSelected = (node) => {
       if (!(node instanceof HTMLElement)) {
@@ -128,7 +151,6 @@ function buildModelSelectionExpression(targetModel: string): string {
       return null;
     };
 
-    pointerClick();
     return new Promise((resolve) => {
       const start = performance.now();
       const ensureMenuOpen = () => {
@@ -212,4 +234,3 @@ function buildModelMatchersLiteral(targetModel: string): { labelTokens: string[]
     testIdTokens: Array.from(testIdTokens).filter(Boolean),
   };
 }
-
