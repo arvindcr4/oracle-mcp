@@ -1,5 +1,6 @@
 export { navigateToChatGPT, ensureNotBlocked, ensurePromptReady } from './actions/navigation.js';
 export { ensureModelSelection } from './actions/modelSelection.js';
+export { ensureSearchEnabled } from './actions/searchToggle.js';
 export { submitPrompt } from './actions/promptComposer.js';
 export { uploadAttachmentFile, waitForAttachmentCompletion } from './actions/attachments.js';
 export {
@@ -9,4 +10,3 @@ export {
   buildAssistantExtractorForTest,
   buildConversationDebugExpressionForTest,
 } from './actions/assistantResponse.js';
-

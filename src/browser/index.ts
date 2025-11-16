@@ -10,6 +10,7 @@ import {
   ensureNotBlocked,
   ensurePromptReady,
   ensureModelSelection,
+  ensureSearchEnabled,
   submitPrompt,
   waitForAssistantResponse,
   captureAssistantMarkdown,
@@ -124,6 +125,30 @@ export async function runBrowserMode(options: BrowserRunOptions): Promise<Browse
       );
       await ensurePromptReady(Runtime, config.inputTimeoutMs, logger);
       logger(`Prompt textarea ready (after model switch, ${promptText.length.toLocaleString()} chars queued)`);
+
+      const desiredModelLabel = (config.desiredModel ?? '').toLowerCase();
+      const shouldForceSearch =
+        desiredModelLabel.includes('pro') ||
+        desiredModelLabel.includes('gpt-5 pro') ||
+        desiredModelLabel.includes('5 pro');
+      if (shouldForceSearch) {
+        await withRetries(
+          () => ensureSearchEnabled(Runtime, logger),
+          {
+            retries: 2,
+            delayMs: 300,
+            onRetry: (attempt, error) => {
+              if (options.verbose) {
+                logger(
+                  `[retry] Search toggle attempt ${attempt + 1}: ${
+                    error instanceof Error ? error.message : error
+                  }`,
+                );
+              }
+            },
+          },
+        );
+      }
     }
     if (attachments.length > 0) {
       if (!DOM) {
