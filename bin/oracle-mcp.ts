@@ -89,7 +89,8 @@ async function main(): Promise<void> {
         chromeProfile: chromeProfile ?? undefined,
         chromePath: chromePath ?? undefined,
         headless,
-        keepBrowser,
+        // Default to keeping the browser open so the user can close it manually.
+        keepBrowser: keepBrowser ?? true,
         timeoutMs,
         inputTimeoutMs,
         cookieSync,
