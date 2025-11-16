@@ -32,12 +32,19 @@ export async function ensureModelSelection(
       return;
     }
     case 'option-not-found': {
+      logger(
+        `Model picker: could not find option matching "${desiredModel}" in the model switcher; continuing with current model.`,
+      );
       await logDomFailure(Runtime, logger, 'model-switcher-option');
-      throw new Error(`Unable to find model option matching "${desiredModel}" in the model switcher.`);
+      return;
     }
+    case 'button-missing':
     default: {
+      logger(
+        `Model picker: could not locate the ChatGPT model selector button; continuing with currently active model.`,
+      );
       await logDomFailure(Runtime, logger, 'model-switcher-button');
-      throw new Error('Unable to locate the ChatGPT model selector button.');
+      return;
     }
   }
 }
