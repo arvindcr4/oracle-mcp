@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 import 'dotenv/config';
-import process from 'node:process';
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js';
 import { z } from 'zod';
-import { runOracle, extractTextOutput, type ModelName, type RunOracleOptions } from '../src/oracle.js';
+import path from 'node:path';
+import process from 'node:process';
+import fs from 'node:fs/promises';
+import type { BrowserAutomationConfig } from '../src/browser/index.js';
+import { runBrowserMode } from '../src/browser/index.js';
+import { readFiles } from '../src/oracle/files.js';
 import { getCliVersion } from '../src/version.js';
-
-const MODEL_NAMES = ['gpt-5-pro', 'gpt-5.1'] as const;
 
 async function main(): Promise<void> {
   const server = new McpServer(
@@ -19,97 +21,89 @@ async function main(): Promise<void> {
   );
 
   server.registerTool(
-    'oracle.query',
+    'oracle.browserQuery',
     {
-      title: 'Oracle GPT-5 Query',
+      title: 'Oracle Browser GPT-5 Query',
       description:
-        'Run a one-shot Oracle query using GPT-5 Pro / GPT-5.1 with optional file context and server-side search.',
+        'Run a one-shot Oracle query using the browser-based ChatGPT automation (no direct API key required).',
       inputSchema: z.object({
         prompt: z.string().min(1, 'Prompt is required.').describe('User prompt to send to Oracle.'),
-        model: z
-          .enum(MODEL_NAMES)
-          .optional()
-          .describe('Model key to use (gpt-5-pro or gpt-5.1). Defaults to gpt-5-pro.'),
         files: z
           .array(z.string())
           .optional()
           .describe('Optional list of file paths to attach, relative to the working directory.'),
-        system: z.string().optional().describe('Optional system prompt override.'),
-        maxInput: z
+        chromeProfile: z
+          .string()
+          .optional()
+          .describe('Optional Chrome profile name to reuse cookies from (e.g., "Default").'),
+        chromePath: z
+          .string()
+          .optional()
+          .describe('Optional path to the Chrome/Chromium binary. Defaults to the system Chrome.'),
+        headless: z.boolean().optional().describe('Launch Chrome in headless mode. Defaults to false.'),
+        keepBrowser: z
+          .boolean()
+          .optional()
+          .describe('If true, keep Chrome running after completion. Defaults to false.'),
+        timeoutMs: z
           .number()
           .int()
           .positive()
           .optional()
-          .describe('Optional override for the input token budget.'),
-        maxOutput: z
+          .describe('Maximum time in milliseconds to wait for a response. Defaults to 900000 (15 minutes).'),
+        inputTimeoutMs: z
           .number()
           .int()
           .positive()
           .optional()
-          .describe('Optional override for the maximum output tokens.'),
-        background: z
+          .describe('Maximum time in milliseconds to wait for the prompt input to be ready.'),
+        cookieSync: z
           .boolean()
           .optional()
-          .describe('If true, run the request using the Responses API background mode.'),
-        search: z
+          .describe('Whether to sync cookies from the local Chrome profile. Defaults to true.'),
+        allowCookieErrors: z
           .boolean()
           .optional()
-          .describe('Enable or disable the server-side search tool (default: on).'),
+          .describe('If true, ignore cookie sync errors instead of failing.'),
       }),
     },
     async (input) => {
-      const {
-        prompt,
-        model = 'gpt-5-pro',
-        files,
-        system,
-        maxInput,
-        maxOutput,
-        background,
-        search,
-      } = input;
+      const { prompt, files, chromeProfile, chromePath, headless, keepBrowser, timeoutMs, inputTimeoutMs, cookieSync, allowCookieErrors } =
+        input;
 
-      const modelName: ModelName = (model ?? 'gpt-5-pro') as ModelName;
-
-      const runOptions: RunOracleOptions = {
-        prompt,
-        model: modelName,
-        file: files,
-        system,
-        maxInput,
-        maxOutput,
-        background,
-        search,
-        filesReport: false,
-        silent: true,
-        preview: false,
-        previewMode: undefined,
-        verbose: false,
-      };
-
-      const result = await runOracle(runOptions, {
-        cwd: process.cwd(),
-        log: () => {},
-        write: () => true,
-      });
-
-      if (result.mode === 'preview') {
-        const summary = [
-          'Oracle returned a preview result.',
-          `Estimated input tokens: ${result.estimatedInputTokens.toLocaleString()}`,
-          `Input token budget: ${result.inputTokenBudget.toLocaleString()}`,
-        ].join('\n');
-        return {
-          content: [
-            {
-              type: 'text',
-              text: summary,
-            },
-          ],
-        };
+      const cwd = process.cwd();
+      const attachments = [];
+      if (files && files.length > 0) {
+        const resolved = await readFiles(files, { cwd });
+        for (const file of resolved) {
+          const stats = await fs.stat(file.path);
+          attachments.push({
+            path: file.path,
+            displayPath: path.relative(cwd, file.path) || file.path,
+            sizeBytes: stats.size,
+          });
+        }
       }
 
-      const text = extractTextOutput(result.response) || '(no text output)';
+      const config: BrowserAutomationConfig = {
+        chromeProfile: chromeProfile ?? undefined,
+        chromePath: chromePath ?? undefined,
+        headless,
+        keepBrowser,
+        timeoutMs,
+        inputTimeoutMs,
+        cookieSync,
+        allowCookieErrors,
+      };
+
+      const result = await runBrowserMode({
+        prompt,
+        attachments,
+        config,
+        verbose: false,
+      });
+
+      const text = result.answerMarkdown || result.answerText || '(no text output)';
       return {
         content: [
           {
